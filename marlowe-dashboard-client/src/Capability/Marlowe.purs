@@ -5,10 +5,8 @@ module Capability.Marlowe
   , marloweCreateContract
   , marloweApplyTransactionInput
   , marloweRedeem
-  , marloweCloseContract
   , marloweLookupWalletInfo
   , marloweLookupWalletDetails
-  , marloweGetRoleContracts
   , marloweGetContracts
   ) where
 
@@ -34,11 +32,12 @@ import Data.UUID (emptyUUID)
 import Foreign (MultipleErrors)
 import Foreign.Generic (decodeJSON)
 import Halogen (HalogenM)
-import Marlowe.PAB (ContractInstanceId(..), ContractType(..), History, MarloweData, MarloweParams, contractExe, contractType)
+import Marlowe.PAB (ContractInstanceId(..), ContractType(..), History, contractExe, contractType)
 import Marlowe.Semantics (Contract, TokenName, TransactionInput(..))
 import Plutus.PAB.Effects.Contract.ContractExe (ContractExe)
 import Plutus.PAB.Webserver.Types (ContractInstanceClientState)
 import Plutus.V1.Ledger.Crypto (PubKeyHash) as Back
+import Plutus.V1.Ledger.Value (CurrencySymbol)
 import Plutus.V1.Ledger.Value (TokenName) as Back
 import PlutusTx.AssocMap (Map) as Back
 import Servant.PureScript.Ajax (AjaxError(..), ErrorDescription(..))
@@ -54,15 +53,13 @@ class
   -- create a Wallet, a WalletCompanionWontract, a MarloweContract, and return the WalletDetails
   marloweCreateWallet :: m (AjaxResponse WalletDetails)
   -- create a WalletFollowerContract to follow a Marlowe contract on the blockchain
-  marloweFollowContract :: WalletDetails -> MarloweParams -> m (DecodedAjaxResponse (Tuple ContractInstanceId History))
+  marloweFollowContract :: WalletDetails -> CurrencySymbol -> m (DecodedAjaxResponse (Tuple ContractInstanceId History))
   -- "create" a Marlowe contract on the blockchain
   marloweCreateContract :: WalletDetails -> Map TokenName PubKeyHash -> Contract -> m (AjaxResponse Unit)
   -- "apply-inputs" to a Marlowe contract on the blockchain
-  marloweApplyTransactionInput :: WalletDetails -> MarloweParams -> TransactionInput -> m (AjaxResponse Unit)
+  marloweApplyTransactionInput :: WalletDetails -> CurrencySymbol -> TransactionInput -> m (AjaxResponse Unit)
   -- "redeem" payments from a Marlowe contract on the blockchain
-  marloweRedeem :: WalletDetails -> MarloweParams -> TokenName -> m (AjaxResponse Unit)
-  -- "close" a Marlowe contract on the blockchain
-  marloweCloseContract :: WalletDetails -> MarloweParams -> m (AjaxResponse Unit)
+  marloweRedeem :: WalletDetails -> CurrencySymbol -> TokenName -> m (AjaxResponse Unit)
   -- get the WalletInfo of a wallet given the contractInstanceId of its WalletCompanionContract
   marloweLookupWalletInfo :: ContractInstanceId -> m (AjaxResponse WalletInfo)
   -- get the WalletDetails of a wallet given the contractInstanceId of its WalletCompanionContract
@@ -70,8 +67,6 @@ class
   -- marloweContractId (because this would take a while to lookup - to get the marloweContractId we
   -- call `marloweGetContracts`)
   marloweLookupWalletDetails :: ContractInstanceId -> m (AjaxResponse WalletDetails)
-  -- get the observable state of a wallet's WalletCompanionContract
-  marloweGetRoleContracts :: WalletDetails -> m (DecodedAjaxResponse (Map MarloweParams MarloweData))
   -- get all contracts related to a wallet
   marloweGetContracts :: WalletDetails -> m (DecodedAjaxResponse (Tuple WalletDetails (Map ContractInstanceId History)))
 
@@ -115,23 +110,18 @@ instance monadMarloweAppM :: ManageMarlowe AppM where
       bRoles = toBack roles
     in
       invokeEndpoint contractInstanceId "create" (bRoles /\ contract)
-  marloweApplyTransactionInput walletDetails marloweParams (TransactionInput { interval, inputs }) =
+  marloweApplyTransactionInput walletDetails rolesCurrency (TransactionInput { interval, inputs }) =
     let
       contractInstanceId = view _marloweContractId walletDetails
     in
-      invokeEndpoint contractInstanceId "apply-inputs" (marloweParams /\ Just interval /\ inputs)
-  marloweRedeem walletDetails marloweParams tokenName =
+      invokeEndpoint contractInstanceId "apply-inputs" (rolesCurrency /\ Just interval /\ inputs)
+  marloweRedeem walletDetails rolesCurrency tokenName =
     let
       contractInstanceId = view _marloweContractId walletDetails
 
       pubKeyHash = view (_walletInfo <<< _pubKeyHash) walletDetails
     in
-      invokeEndpoint contractInstanceId "redeem" (marloweParams /\ tokenName /\ pubKeyHash)
-  marloweCloseContract walletDetails marloweParams =
-    let
-      contractInstanceId = view _marloweContractId walletDetails
-    in
-      invokeEndpoint contractInstanceId "close" marloweParams
+      invokeEndpoint contractInstanceId "redeem" (rolesCurrency /\ tokenName /\ pubKeyHash)
   marloweLookupWalletInfo companionContractId =
     runExceptT do
       clientState <- ExceptT $ getContractInstanceClientState companionContractId
@@ -163,12 +153,6 @@ instance monadMarloweAppM :: ManageMarlowe AppM where
                 , assets
                 }
         _ -> except $ Left $ AjaxError { request: defaultRequest, description: NotFound }
-  marloweGetRoleContracts walletDetails =
-    runExceptT do
-      let
-        contractInstanceId = view _marloweContractId walletDetails
-      observableStateJson <- withExceptT Left $ ExceptT $ getContractInstanceObservableState contractInstanceId
-      mapExceptT (pure <<< lmap Right <<< unwrap) $ decodeJSON $ unwrap observableStateJson
   marloweGetContracts walletDetails =
     runExceptT do
       let
@@ -203,12 +187,10 @@ instance monadMarloweAppM :: ManageMarlowe AppM where
 
 instance monadMarloweHalogenM :: ManageMarlowe m => ManageMarlowe (HalogenM state action slots msg m) where
   marloweCreateWallet = lift marloweCreateWallet
-  marloweFollowContract walletDetails marloweParams = lift $ marloweFollowContract walletDetails marloweParams
+  marloweFollowContract walletDetails rolesCurrency = lift $ marloweFollowContract walletDetails rolesCurrency
   marloweCreateContract walletDetails roles contract = lift $ marloweCreateContract walletDetails roles contract
-  marloweApplyTransactionInput walletDetails marloweParams transactionInput = lift $ marloweApplyTransactionInput walletDetails marloweParams transactionInput
-  marloweRedeem walletDetails marloweParams tokenName = lift $ marloweRedeem walletDetails marloweParams tokenName
-  marloweCloseContract walletDetails marloweParams = lift $ marloweCloseContract walletDetails marloweParams
+  marloweApplyTransactionInput walletDetails rolesCurrency transactionInput = lift $ marloweApplyTransactionInput walletDetails rolesCurrency transactionInput
+  marloweRedeem walletDetails rolesCurrency tokenName = lift $ marloweRedeem walletDetails rolesCurrency tokenName
   marloweLookupWalletInfo = lift <<< marloweLookupWalletInfo
   marloweLookupWalletDetails = lift <<< marloweLookupWalletDetails
-  marloweGetRoleContracts = lift <<< marloweGetRoleContracts
   marloweGetContracts = lift <<< marloweGetContracts
