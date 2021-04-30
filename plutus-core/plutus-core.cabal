@@ -97,6 +97,9 @@ library
         PlutusCore.Error
 
         PlutusIR
+        PlutusIR.Core
+        PlutusIR.Core.Instance
+        PlutusIR.Core.Instance.Pretty
         PlutusIR.Core.Plated
         PlutusIR.Core.Type
         PlutusIR.Compiler
@@ -106,7 +109,6 @@ library
         PlutusIR.Generators.AST
         PlutusIR.Parser
         PlutusIR.MkPir
-        PlutusIR.Pretty
         PlutusIR.Purity
         PlutusIR.Transform.DeadCode
         PlutusIR.Transform.Substitute

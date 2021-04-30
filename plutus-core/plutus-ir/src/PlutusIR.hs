@@ -25,6 +25,4 @@ module PlutusIR (
     tyVarDeclNameString
     ) where
 
-import           PlutusIR.Core.Plated
-import           PlutusIR.Core.Type
-import           PlutusIR.Pretty      ()
+import           PlutusIR.Core

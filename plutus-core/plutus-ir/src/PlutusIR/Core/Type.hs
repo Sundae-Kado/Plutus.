@@ -23,20 +23,16 @@ module PlutusIR.Core.Type (
 
 import           PlutusPrelude
 
-import           PlutusCore                       (Kind, Name, TyName, Type (..), typeSubtypes)
-import qualified PlutusCore                       as PLC
-import           PlutusCore.Constant              (AsConstant (..), FromConstant (..))
-import           PlutusCore.Core                  (UniOf)
-import           PlutusCore.Flat                  ()
-import           PlutusCore.MkPlc                 (Def (..), TermLike (..), TyVarDecl (..), VarDecl (..))
-import qualified PlutusCore.Name                  as PLC
-import qualified PlutusCore.Pretty                as PLC
+import           PlutusCore          (Kind, Name, TyName, Type (..))
+import qualified PlutusCore          as PLC
+import           PlutusCore.Constant (AsConstant (..), FromConstant (..))
+import           PlutusCore.Core     (UniOf)
+import           PlutusCore.Flat     ()
+import           PlutusCore.MkPlc    (Def (..), TermLike (..), TyVarDecl (..), VarDecl (..))
 
-import           Control.Lens                     hiding (Strict)
 
-import qualified Data.Text                        as T
-import           Data.Text.Prettyprint.Doc.Custom
-import           Flat                             (Flat)
+import qualified Data.Text           as T
+import           Flat                (Flat)
 
 -- Datatypes
 

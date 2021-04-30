@@ -16,7 +16,6 @@ import           PlutusCore.Flat    ()
 import qualified PlutusCore.Name    as PLC
 
 import           PlutusIR.Core.Type
-import           PlutusIR.Pretty    ()
 
 import           Control.Lens       hiding (Strict)
 

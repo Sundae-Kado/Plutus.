@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE UndecidableInstances  #-}
 {-# OPTIONS_GHC -Wno-orphans       #-}
-module PlutusIR.Pretty where
+module PlutusIR.Core.Instance.Pretty () where
 
 import           PlutusPrelude
 
